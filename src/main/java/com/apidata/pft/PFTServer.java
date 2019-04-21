@@ -36,7 +36,7 @@ import static com.apidata.pft.PFTConstants.END_MESSAGE_MARKER;
 /**
  * PFTServer creates a SocketChannel. It's uses java non-blocking io way to read from sockets,
  * so that one thread communicates with multiple open connections at once.
- * */
+ */
 public class PFTServer {
     private static final Logger LOG = LoggerFactory.getLogger(PFTServer.class);
 
@@ -55,9 +55,10 @@ public class PFTServer {
 
     public void doWork() {
         LOG.info("Server started on hostname={} and port={}", hostName, port);
+        ServerSocketChannel serverChannel = null;
         try {
             this.selector = Selector.open();
-            ServerSocketChannel serverChannel = ServerSocketChannel.open();
+            serverChannel = ServerSocketChannel.open();
             serverChannel.configureBlocking(false);
 
             serverChannel.socket().bind(listenAddress);
@@ -96,6 +97,14 @@ public class PFTServer {
             }
         } catch (IOException e) {
             LOG.error("IOException occurred", e);
+        } finally {
+            if (serverChannel != null) {
+                try {
+                    serverChannel.close();
+                } catch (IOException e) {
+                    LOG.error("IOException occurred", e);
+                }
+            }
         }
     }
 
@@ -140,7 +149,7 @@ public class PFTServer {
                 long offset = ((FileChunkRequestMsg) msg).getOffset();
                 int chunkId = ((FileChunkRequestMsg) msg).getChunkId();
                 long maxBufferSize = ((FileChunkRequestMsg) msg).getMaxBufferSize();
-                channel.socket().setSendBufferSize((int)maxBufferSize);
+                channel.socket().setSendBufferSize((int) maxBufferSize);
 
                 RandomAccessFile raf = new RandomAccessFile(filePath, "r");
                 long seek = chunkId * offset;
@@ -157,9 +166,9 @@ public class PFTServer {
                 buffer = ByteBuffer.allocate(capacity);
 
                 int len;
-                int totalBytes=0;
+                int totalBytes = 0;
                 while ((len = inChannel.read(buffer)) > 0) {
-                    totalBytes+=len;
+                    totalBytes += len;
                     buffer.flip();
                     channel.write(buffer);
                     buffer.clear();
@@ -173,7 +182,7 @@ public class PFTServer {
                 if (remaining > 0) {
                     buffer = ByteBuffer.allocate(remaining);
                     while ((len = inChannel.read(buffer)) > 0) {
-                        totalBytes+=len;
+                        totalBytes += len;
                         buffer.flip();
                         channel.write(buffer);
                         buffer.clear();
@@ -185,7 +194,8 @@ public class PFTServer {
                 buffer = ByteBuffer.wrap(message);
                 channel.write(buffer);
                 buffer.clear();
-                LOG.info("Total bytes asked {} downloaded {} by thread-{}",offset,totalBytes,chunkId);
+                LOG.info("Total bytes asked {} downloaded {} by thread-{}", offset, totalBytes,
+                        chunkId);
             } else {
                 LOG.error("Unexpected message " + msg);
                 closeConnection(channel, key);

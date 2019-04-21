@@ -35,6 +35,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.PriorityBlockingQueue;
 
 import static com.apidata.pft.PFTConstants.BUFFER_SIZE;
+import static com.apidata.pft.PFTConstants.MAX_BUFFER_PER_THREAD;
 
 /**
  * PFTClient opens a SocketChannel to the server running on hostName and port configured.
@@ -46,18 +47,19 @@ import static com.apidata.pft.PFTConstants.BUFFER_SIZE;
 public class PFTClient {
     private static final Logger LOG = LoggerFactory.getLogger(PFTClient.class);
     private static final int EXECUTORS = 10;
-    private static final int MAX_BUFFER_PER_THREAD = 9998336;
 
     private String hostName;
     private int port;
     private String serverFilePath;
     private String clientFilePath;
+    private int maxBufferPerThread;
 
-    public PFTClient(String hostName, int port, String serverFilePath, String clientFilePath) {
+    public PFTClient(String hostName, int port, String serverFilePath, String clientFilePath, int maxBufferPerThread) {
         this.hostName = hostName;
         this.port = port;
         this.serverFilePath = serverFilePath;
         this.clientFilePath = clientFilePath;
+        this.maxBufferPerThread = maxBufferPerThread;
     }
 
     public void doWork() {
@@ -82,8 +84,8 @@ public class PFTClient {
                 LOG.info("Response received filesize={} ", fileSize);
             }
 
-            long total = fileSize / MAX_BUFFER_PER_THREAD;
-            boolean isRemaining = fileSize % MAX_BUFFER_PER_THREAD > 0;
+            long total = fileSize / maxBufferPerThread;
+            boolean isRemaining = fileSize % maxBufferPerThread > 0;
             if (isRemaining) {
                 total++;
             }
@@ -105,13 +107,13 @@ public class PFTClient {
                     long
                             offset =
                             (isRemaining && i == total - 1) ?
-                                    (fileSize % MAX_BUFFER_PER_THREAD) :
-                                    MAX_BUFFER_PER_THREAD;
+                                    (fileSize % maxBufferPerThread) :
+                                    maxBufferPerThread;
                     PFTChunkClient
                             pftChunkClient =
                             new PFTChunkClient(i, hostName, port, serverFilePath,
                                     clientFilePath + PFTConstants.PART + i, offset,
-                                    MAX_BUFFER_PER_THREAD);
+                                    maxBufferPerThread);
                     futures.add(completionService.submit(pftChunkClient));
                 }
                 try {
@@ -167,6 +169,7 @@ public class PFTClient {
         options.addOption("S", "serverFilePath", true, "Server File to be downloaded");
         options.addOption("C", "clientFilePath", true,
                 "Client File to be copied, Default=/tmp/<epochTime>/<server-file>");
+        options.addOption("O", "offset", true, "Max offset per thread, Default="+ MAX_BUFFER_PER_THREAD);
         options.addOption("h", "help", false, "Help usage");
         return options;
     }
@@ -201,7 +204,9 @@ public class PFTClient {
             }
             if (file.exists()) file.delete();
 
-            PFTClient pftClient = new PFTClient(hostName, port, serverFilePath, clientFilePath);
+            int maxBufferPerThread = Integer.parseInt(cmd.getOptionValue("O", MAX_BUFFER_PER_THREAD+""));
+
+            PFTClient pftClient = new PFTClient(hostName, port, serverFilePath, clientFilePath, maxBufferPerThread);
             pftClient.doWork();
 
         } catch (ParseException e) {
