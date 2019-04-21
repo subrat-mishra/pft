@@ -17,6 +17,7 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -54,7 +55,8 @@ public class PFTClient {
     private String clientFilePath;
     private int maxBufferPerThread;
 
-    public PFTClient(String hostName, int port, String serverFilePath, String clientFilePath, int maxBufferPerThread) {
+    public PFTClient(String hostName, int port, String serverFilePath, String clientFilePath,
+            int maxBufferPerThread) {
         this.hostName = hostName;
         this.port = port;
         this.serverFilePath = serverFilePath;
@@ -169,7 +171,8 @@ public class PFTClient {
         options.addOption("S", "serverFilePath", true, "Server File to be downloaded");
         options.addOption("C", "clientFilePath", true,
                 "Client File to be copied, Default=/tmp/<epochTime>/<server-file>");
-        options.addOption("O", "offset", true, "Max offset per thread, Default="+ MAX_BUFFER_PER_THREAD);
+        options.addOption("O", "offset", true,
+                "Max offset per thread, Default=" + MAX_BUFFER_PER_THREAD);
         options.addOption("h", "help", false, "Help usage");
         return options;
     }
@@ -204,9 +207,14 @@ public class PFTClient {
             }
             if (file.exists()) file.delete();
 
-            int maxBufferPerThread = Integer.parseInt(cmd.getOptionValue("O", MAX_BUFFER_PER_THREAD+""));
+            int
+                    maxBufferPerThread =
+                    Integer.parseInt(cmd.getOptionValue("O", MAX_BUFFER_PER_THREAD + ""));
 
-            PFTClient pftClient = new PFTClient(hostName, port, serverFilePath, clientFilePath, maxBufferPerThread);
+            PFTClient
+                    pftClient =
+                    new PFTClient(hostName, port, serverFilePath, clientFilePath,
+                            maxBufferPerThread);
             pftClient.doWork();
 
         } catch (ParseException e) {
@@ -239,19 +247,17 @@ class FileMerger extends Thread {
 
     @Override
     public void run() {
-        FileWriter fstream = null;
-        BufferedWriter out = null;
+        FileOutputStream fos = null;
         try {
             File clientFile = new File(clientFilePath);
             if (clientFile.exists()) clientFile.delete();
 
-            fstream = new FileWriter(clientFile, true);
-            out = new BufferedWriter(fstream);
-        } catch (IOException e1) {
-            e1.printStackTrace();
+            fos = new FileOutputStream(clientFile);
+        } catch (IOException e) {
+            LOG.error("IOException occurred", e);
         }
-        if (out == null) {
-            throw new RuntimeException("Unable to create a BufferedWriter for " + clientFilePath);
+        if (fos == null) {
+            throw new RuntimeException("Unable to create a FileOutputStream for " + clientFilePath);
         }
         long totalBytesCopied = 0;
         try {
@@ -263,17 +269,15 @@ class FileMerger extends Thread {
                     try {
                         File f = new File(clientFilePath + PFTConstants.PART + value);
                         fis = new FileInputStream(f);
-                        BufferedReader in = new BufferedReader(new InputStreamReader(fis));
 
-                        char[] buf = new char[BUFFER_SIZE];
+                        byte[] buf = new byte[BUFFER_SIZE];
                         int read;
                         long fileBytes = 0;
-                        while ((read = in.read(buf)) != -1) {
-                            out.write(buf, 0, read);
+                        while ((read = fis.read(buf)) != -1) {
+                            fos.write(buf, 0, read);
                             fileBytes += read;
                         }
 
-                        in.close();
                         fis.close();
                         f.delete();
                         totalBytesCopied += fileBytes;
@@ -299,8 +303,7 @@ class FileMerger extends Thread {
         }
 
         try {
-            out.close();
-            fstream.close();
+            fos.close();
         } catch (IOException e) {
             LOG.error("IOException occurred", e);
         }
