@@ -61,7 +61,7 @@ public abstract class Message {
         // payload data
         msg.fromBytes(dataBuffer);
 
-        LOG.info("Message read from socket: " + msg);
+        LOG.trace("Message read from socket: " + msg);
 
         return msg;
     }
@@ -84,7 +84,7 @@ public abstract class Message {
         // and lastly write the length, followed by the message.
         long written = channel.write(new ByteBuffer[] { overall, msg });
 
-        LOG.info("Message written to socket: " + toSend + ", length was: " + written);
+        LOG.trace("Message written to socket: " + toSend + ", length was: " + written);
     }
 
     private static void checkBytesAvailable(SocketChannel socket, ByteBuffer buffer, int required)
@@ -103,7 +103,7 @@ public abstract class Message {
                 throw new SocketCloseException("Socket closed while reading");
             }
 
-            LOG.info("Bytes now in buffer: " + buffer.remaining() + " read from socket: " + len);
+            LOG.trace("Bytes now in buffer: " + buffer.remaining() + " read from socket: " + len);
         }
 
         // flip to prepare the buffer for reading.

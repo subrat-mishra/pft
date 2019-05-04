@@ -44,10 +44,10 @@ public class PFTClient {
     private int port;
     private String serverFilePath;
     private String clientFilePath;
-    private int maxBufferPerThread;
+    private long maxBufferPerThread;
 
     public PFTClient(String hostName, int port, String serverFilePath, String clientFilePath,
-            int maxBufferPerThread) {
+            long maxBufferPerThread) {
         this.hostName = hostName;
         this.port = port;
         this.serverFilePath = serverFilePath;
@@ -105,16 +105,15 @@ public class PFTClient {
                     PFTChunkClient
                             pftChunkClient =
                             new PFTChunkClient(i, hostName, port, serverFilePath, offset,
-                                    maxBufferPerThread, clientFile.getChannel());
+                                    i * maxBufferPerThread, clientFile.getChannel());
                     futures.add(completionService.submit(pftChunkClient));
                 }
                 try {
-                    int count = 0;
                     long startTime = System.currentTimeMillis();
-                    for (int i = 0; i < total; i++) {
+                    for (int i = 1; i <= total; i++) {
                         Result result = completionService.take().get();
                         LOG.info("Completed: {} in {}, progress {}/{}", result.getId(),
-                                result.getTimeTaken(), count++, total);
+                                result.getTimeTaken(), i, total);
                         if (!result.isStatus()) {
                             // TODO: can be re-tried.
                             throw new RuntimeException(
@@ -199,9 +198,9 @@ public class PFTClient {
             }
             if (file.exists()) file.delete();
 
-            int
+            long
                     maxBufferPerThread =
-                    Integer.parseInt(cmd.getOptionValue("O", MAX_BUFFER_PER_THREAD + ""));
+                    Long.parseLong(cmd.getOptionValue("O", MAX_BUFFER_PER_THREAD + ""));
 
             PFTClient
                     pftClient =

@@ -6,17 +6,20 @@ public class FileChunkRequestMsg extends Message {
     private String filePath;
     private Long offset;
     private Integer chunkId;
-    private Long maxBufferSize;
+    private Integer length;
 
     public FileChunkRequestMsg() {
-
     }
 
-    public FileChunkRequestMsg(String filePath, Long offset, Integer chunkId, Long maxBufferSize) {
+    public FileChunkRequestMsg(String filePath, Long offset, Integer chunkId, Integer length) {
         this.filePath = filePath;
         this.offset = offset;
         this.chunkId = chunkId;
-        this.maxBufferSize = maxBufferSize;
+        this.length = length;
+    }
+
+    public Integer getLength() {
+        return length;
     }
 
     public String getFilePath() {
@@ -31,10 +34,6 @@ public class FileChunkRequestMsg extends Message {
         return chunkId;
     }
 
-    public Long getMaxBufferSize() {
-        return maxBufferSize;
-    }
-
     public void fromBytes(ByteBuffer buffer) {
         int len = buffer.getShort();
         byte[] bytes = new byte[len];
@@ -44,11 +43,11 @@ public class FileChunkRequestMsg extends Message {
         filePath = arr[0];
         offset = Long.parseLong(arr[1]);
         chunkId = Integer.parseInt(arr[2]);
-        maxBufferSize = Long.parseLong(arr[3]);
+        length = Integer.parseInt(arr[3]);
     }
 
     public void toBytes(ByteBuffer buffer) {
-        byte[] bytes = (filePath + "," + offset + "," + chunkId + "," + maxBufferSize).getBytes();
+        byte[] bytes = (filePath + "," + offset + "," + chunkId + "," + length).getBytes();
         int len = bytes.length;
         buffer.putShort((short) len);
         buffer.put(bytes);
@@ -56,6 +55,6 @@ public class FileChunkRequestMsg extends Message {
 
     @Override
     public String toString() {
-        return filePath + "," + offset + "," + chunkId + "," + maxBufferSize;
+        return filePath + "," + offset + "," + chunkId + "," + length;
     }
 }

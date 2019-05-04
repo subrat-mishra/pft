@@ -23,15 +23,17 @@ import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channel;
 import java.nio.channels.FileChannel;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
-
-import static com.apidata.pft.PFTConstants.END_MESSAGE_MARKER;
 
 /**
  * PFTServer creates a SocketChannel. It's uses java non-blocking io way to read from sockets,
@@ -125,7 +127,8 @@ public class PFTServer {
     private void read(SelectionKey key) throws IOException {
         SocketChannel channel = (SocketChannel) key.channel();
         ByteBuffer buffer = ByteBuffer.allocate(PFTConstants.BUFFER_SIZE);
-
+        RandomAccessFile raf = null;
+        FileChannel inChannel = null;
         try {
             Message msg = Message.nextMsgFromSocket(channel, buffer);
             if (msg instanceof FileRequestMsg) {
@@ -144,58 +147,27 @@ public class PFTServer {
                 Message.sendMessage(channel, response);
             } else if (msg instanceof FileChunkRequestMsg) {
                 // Get the FileChunkRequestMsg from client and send the actual payload followed by END_MESSSGE_MARKER
-                LOG.info("Received a FileChunkRequestMsg");
+                LOG.trace("Received a FileChunkRequestMsg");
                 String filePath = ((FileChunkRequestMsg) msg).getFilePath();
                 long offset = ((FileChunkRequestMsg) msg).getOffset();
-                int chunkId = ((FileChunkRequestMsg) msg).getChunkId();
-                long maxBufferSize = ((FileChunkRequestMsg) msg).getMaxBufferSize();
-                channel.socket().setSendBufferSize((int) maxBufferSize);
+                Integer chunkId = ((FileChunkRequestMsg) msg).getChunkId();
+                Integer length = ((FileChunkRequestMsg) msg).getLength();
+                //                channel.socket().setSendBufferSize(length);
 
-                RandomAccessFile raf = new RandomAccessFile(filePath, "r");
-                long seek = chunkId * maxBufferSize;
-                raf.seek(seek);
+                raf = new RandomAccessFile(filePath, "r");
 
-                FileChannel inChannel = raf.getChannel();
-
-                int capacity = Math.min((int) offset, PFTConstants.BUFFER_SIZE);
-
-                int loop = (int) offset / capacity;
-                int remaining = (int) offset;
-
-                // Copy all data.
-                buffer = ByteBuffer.allocate(capacity);
-
+                raf.seek(offset);
+                buffer = ByteBuffer.allocate(length);
                 int len;
                 int totalBytes = 0;
-                while ((len = inChannel.read(buffer)) > 0) {
+                inChannel = raf.getChannel();
+                if ((len = inChannel.read(buffer)) > 0) {
                     totalBytes += len;
                     buffer.flip();
                     channel.write(buffer);
                     buffer.clear();
-                    remaining -= capacity;
-                    loop--;
-                    if (loop == 0) {
-                        break;
-                    }
                 }
-                // Copy remaining data
-                if (remaining > 0) {
-                    buffer = ByteBuffer.allocate(remaining);
-                    while ((len = inChannel.read(buffer)) > 0) {
-                        totalBytes += len;
-                        buffer.flip();
-                        channel.write(buffer);
-                        buffer.clear();
-                        break;
-                    }
-                }
-                // Finally add END_MESSAGE_MARKER
-                byte[] message = END_MESSAGE_MARKER.getBytes();
-                buffer = ByteBuffer.wrap(message);
-                channel.write(buffer);
-                buffer.clear();
-                LOG.info("Total bytes asked {} downloaded {} by thread-{}", offset, totalBytes,
-                        chunkId);
+                LOG.trace("Total bytes asked {} sent {} chunkId {}", offset, totalBytes, chunkId);
             } else {
                 LOG.error("Unexpected message " + msg);
                 closeConnection(channel, key);
@@ -203,6 +175,13 @@ public class PFTServer {
         } catch (SocketCloseException sce) {
             // SocketClose by client
             closeConnection(channel, key);
+        } finally {
+            if (raf != null) {
+                raf.close();
+            }
+            if(inChannel != null) {
+                inChannel.close();
+            }
         }
     }
 
