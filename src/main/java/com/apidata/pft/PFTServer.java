@@ -152,7 +152,7 @@ public class PFTServer {
                 channel.socket().setSendBufferSize((int) maxBufferSize);
 
                 RandomAccessFile raf = new RandomAccessFile(filePath, "r");
-                long seek = chunkId * offset;
+                long seek = chunkId * maxBufferSize;
                 raf.seek(seek);
 
                 FileChannel inChannel = raf.getChannel();

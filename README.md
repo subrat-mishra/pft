@@ -13,10 +13,9 @@ so that one thread communicates with multiple open connections at once.
     fileSize as -1.
    * Next based on the FileResponseMsg it creates multiple PFTChunkClient threads which reads the data from
      server using SocketChannel. 
-   * PFTChunkClient thread pulls data for specific offset of file from server and return a Result Object 
+   * PFTChunkClient thread pulls data for specific offset of file from server and write to a fileChannel
+    of a RandomAccessFile and return a Result Object 
    containing timeTaken for the operation and the job status.
-   * FileMerger thread merges all the chunked files data into one file as soon as PFTChunkClient
-    thread is completed in sequence of chunkId.
 - Communication between server and client over the socket is based on a Message class. It's has set of methods
 needed to send and receive data over the socket.
 

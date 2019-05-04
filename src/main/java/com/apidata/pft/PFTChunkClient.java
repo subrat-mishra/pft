@@ -10,9 +10,6 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.concurrent.Callable;
 
 import static com.apidata.pft.PFTConstants.BUFFER_SIZE;
@@ -32,16 +29,17 @@ public class PFTChunkClient implements Callable {
     private String clientFilePath;
     private long offset;
     private long maxBufferSize;
+    private FileChannel channel;
 
     public PFTChunkClient(int chunkId, String hostName, int port, String serverFilePath,
-            String clientFilePath, long offset, long maxBufferSize) {
+            long offset, long maxBufferSize, FileChannel channel) {
         this.chunkId = chunkId;
         this.hostName = hostName;
         this.port = port;
         this.serverFilePath = serverFilePath;
-        this.clientFilePath = clientFilePath;
         this.offset = offset;
         this.maxBufferSize = maxBufferSize;
+        this.channel = channel;
     }
 
     @Override
@@ -63,13 +61,6 @@ public class PFTChunkClient implements Callable {
                         new FileChunkRequestMsg(serverFilePath, offset, chunkId, maxBufferSize);
                 Message.sendMessage(client, msg);
 
-                // create a filechannel to write data
-                Path path = Paths.get(clientFilePath);
-                FileChannel
-                        fileChannel =
-                        FileChannel.open(path, StandardOpenOption.WRITE,
-                                StandardOpenOption.CREATE_NEW);
-
                 ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE);
 
                 int len;
@@ -78,6 +69,7 @@ public class PFTChunkClient implements Callable {
                 long remainder = offset % BUFFER_SIZE;
                 StringBuilder doneMsg = new StringBuilder();
                 int count = 0;
+                long startPosition = chunkId * maxBufferSize;
                 while ((len = client.read(buffer)) > 0) {
                     totalBytes += len;
                     if (chunkId == 0) {
@@ -98,7 +90,8 @@ public class PFTChunkClient implements Callable {
                         buffer = ByteBuffer.allocate((int) remainder);
                         buffer.put(msgBytes, 0, (int) remainder);
                         buffer.flip();
-                        fileChannel.write(buffer);
+                        channel.write(buffer, startPosition);
+                        startPosition += len;
                         buffer.clear();
 
                         if (doneMsg.toString().equals(END_MESSAGE_MARKER)) {
@@ -123,11 +116,11 @@ public class PFTChunkClient implements Callable {
                     } else {
                         // put the data into the fileChannel
                         buffer.flip();
-                        fileChannel.write(buffer);
+                        channel.write(buffer, startPosition);
+                        startPosition += len;
                         buffer.clear();
                     }
                 }
-                fileChannel.close();
                 status = true;
                 LOG.info("Total bytes asked {} downloaded {} by thread-{}", offset, totalBytes,
                         chunkId);
@@ -135,12 +128,12 @@ public class PFTChunkClient implements Callable {
         } catch (IOException e) {
             LOG.error("IOException occurred", e);
         } finally {
-            if (client != null) {
-                try {
+            try {
+                if (client != null) {
                     client.close();
-                } catch (IOException e) {
-                    LOG.error("IOException occurred", e);
                 }
+            } catch (IOException e) {
+                LOG.error("IOException occurred", e);
             }
         }
         Long endTime = System.currentTimeMillis();
