@@ -124,7 +124,7 @@ public class PFTServer {
     private void read(SelectionKey key) throws IOException {
         SocketChannel channel = (SocketChannel) key.channel();
         ByteBuffer buffer = ByteBuffer.allocate(PFTConstants.BUFFER_SIZE);
-        RandomAccessFile raf = null;
+        FileInputStream fis = null;
         FileChannel inChannel = null;
         try {
             Message msg = Message.nextMsgFromSocket(channel, buffer);
@@ -151,7 +151,7 @@ public class PFTServer {
                 Integer length = ((FileChunkRequestMsg) msg).getLength();
                 //                channel.socket().setSendBufferSize(length);
 
-                FileInputStream fis = new FileInputStream(filePath);
+                fis = new FileInputStream(filePath);
                 buffer = ByteBuffer.allocate(length);
                 int len;
                 int totalBytes = 0;
@@ -171,8 +171,8 @@ public class PFTServer {
             // SocketClose by client
             closeConnection(channel, key);
         } finally {
-            if (raf != null) {
-                raf.close();
+            if (fis != null) {
+                fis.close();
             }
             if(inChannel != null) {
                 inChannel.close();
