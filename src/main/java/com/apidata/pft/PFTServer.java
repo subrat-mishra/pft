@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
@@ -150,14 +151,12 @@ public class PFTServer {
                 Integer length = ((FileChunkRequestMsg) msg).getLength();
                 //                channel.socket().setSendBufferSize(length);
 
-                raf = new RandomAccessFile(filePath, "r");
-
-                raf.seek(offset);
+                FileInputStream fis = new FileInputStream(filePath);
                 buffer = ByteBuffer.allocate(length);
                 int len;
                 int totalBytes = 0;
-                inChannel = raf.getChannel();
-                if ((len = inChannel.read(buffer)) > 0) {
+                inChannel = fis.getChannel();
+                if ((len = inChannel.read(buffer, offset)) > 0) {
                     totalBytes += len;
                     buffer.flip();
                     channel.write(buffer);

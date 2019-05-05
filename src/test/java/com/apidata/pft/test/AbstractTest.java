@@ -31,7 +31,7 @@ public class AbstractTest {
             byte[] b = Files.readAllBytes(Paths.get(srcFile.toURI()));
             byte[] hash = MessageDigest.getInstance(MD5).digest(b);
             String srcSource = DatatypeConverter.printHexBinary(hash);
-            b = Files.readAllBytes(Paths.get(srcFile.toURI()));
+            b = Files.readAllBytes(Paths.get(targetFile.toURI()));
             hash = MessageDigest.getInstance("MD5").digest(b);
             String destSource = DatatypeConverter.printHexBinary(hash);
             assertEquals("file did not copy completely", srcFile.length(), targetFile.length());
